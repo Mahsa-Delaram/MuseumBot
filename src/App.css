@@ -1,0 +1,239 @@
+:root {
+  --bg: #0f172a;          /* slate-900 */
+  --panel: #111827;       /* gray-900 */
+  --card: #0b1220;        /* dark card */
+  --text: #e5e7eb;        /* gray-200 */
+  --muted: #94a3b8;       /* slate-400 */
+
+  --agentA: #60a5fa;      /* blue-400 */
+  --agentB: #f87171;      /* red-400 */
+  --user:   #a78bfa;      /* violet-400 */
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, Arial; }
+
+/* ===== Layout (desktop default) ===== */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 420px;   /* left image flexes, right chat fixed */
+  height: 100dvh;                     /* mobile-safe viewport */
+}
+
+/* Left pane */
+.left {
+  background: linear-gradient(180deg, #0b1220, #111827);
+  border-right: 1px solid #1f2937;
+  overflow: hidden;
+}
+
+.gallery {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: clamp(8px, 1.5vw, 16px);
+}
+
+.gallery img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;    /* fills the pane like the mockup */
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+
+/* Right pane (chat) */
+.right {
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;         /* prevents overflow in flex/grid children */
+}
+
+.chat { 
+  height: 100%; 
+  display: flex; 
+  flex-direction: column;
+  background: #f87171;
+ }
+
+.chat__header { 
+  padding: 12px 14px; 
+  border-bottom: 1px solid #1f2937; 
+  position: sticky; top: 0; background: var(--panel); z-index: 1;
+}
+.chat__header h2 { margin: 0; font-size: clamp(14px,1.4vw,16px); color: var(--muted); }
+
+/* Scrollable messages area */
+.chat__messages {
+  flex: 1;
+  padding: 12px;
+  display: block;
+  gap: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background:#e3e4e4;   
+  color: #111827;
+}
+
+/* Rows with avatar outside bubble */
+.message-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.message-row.agent { justify-content: flex-start; }
+.message-row.user  { justify-content: flex-end; }
+
+.avatar img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Bubbles */
+.bubble {
+  max-width: min(72%, 560px);
+  padding: 10px 12px;
+  border-radius: 14px;
+  line-height: 1.35;
+  background: var(--card);
+  border: 1px solid #1f2937;
+  word-wrap: break-word;
+  height: fit-content;
+  margin: 6px 0;
+}
+
+.bubble--agentA { 
+  background: rgba(96,165,250,.1);
+  border-color: rgba(96,165,250,.35); 
+}
+.bubble--agentB { 
+  background: rgba(248,113,113,.1); 
+  border-color: rgba(248,113,113,.35);
+}
+.bubble--user   { 
+  background: rgba(167,139,250,.1);
+  border-color: rgba(167,139,250,.35); 
+  margin-left: auto;     /* right align in flex row */
+  text-align: left;
+}
+
+/* Input row */
+.chat__input {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid #1f2937;
+  background: #0b1220;
+}
+
+.chat__input input {
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #1f2937;
+  background: #0f172a;
+  color: var(--text);
+  outline: none;
+  min-width: 0; /* allow shrinking on small screens */
+}
+
+.chat__input button {
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid #1f2937;
+  background: #1f2937;
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* ====== Responsive breakpoints ====== */
+
+/* Tablet: tighten chat column, widen bubbles slightly */
+@media (max-width: 1200px) {
+  .layout { grid-template-columns: 1fr 360px; }
+  .bubble { max-width: min(78%, 520px); }
+}
+
+/* Mobile: stack vertically (image on top, chat below) */
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;        /* single column */
+    grid-template-rows: auto 1fr;      /* image height first, chat fills rest */
+    height: 100dvh;
+  }
+  .left {
+    height: 44dvh;                     /* image block */
+    border-right: none;
+    border-bottom: 1px solid #1f2937;
+  }
+  .right { height: 56dvh; }            /* chat block */
+
+  .chat__messages { padding: 10px; gap: 8px; }
+  .bubble { max-width: 85%; font-size: clamp(13px, 2.8vw, 15px); }
+  .avatar img { width: 26px; height: 26px; }
+}
+
+/* Very small phones: make input easier to tap */
+@media (max-width: 420px) {
+  .chat__input {
+    grid-template-columns: 1fr 84px;
+    gap: 6px;
+    padding: 8px;
+  }
+  .chat__input button { padding: 0 12px; }
+}
+/* typing bubble style (inherits bubble color) */
+.typing { opacity: 0.9; }
+
+/* three-dot animation */
+.dots {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;          /* use bubble’s text color */
+  opacity: 0.35;
+  animation: blink 1.2s infinite;
+}
+.dots span:nth-child(2){ animation-delay: .2s; }
+.dots span:nth-child(3){ animation-delay: .4s; }
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 0.9; transform: translateY(-1px); }
+}
+/* lock the app to the viewport so the page itself doesn't scroll */
+html, body, #root { height: 100%; overflow: hidden; }
+
+/* the two-column grid fills the viewport */
+.layout { height: 100dvh; }
+
+/* right pane & chat column never grow beyond the viewport */
+.right { display: flex; flex-direction: column; overflow: hidden; }
+.chat  { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+
+/* make ONLY the messages area scrollable */
+.chat__messages {
+  flex: 1;
+  min-height: 0;          /* IMPORTANT: allows child to shrink and scroll */
+  overflow-y: auto;       /* scroll only here */
+  overscroll-behavior: contain;
+}
+@media (max-width: 900px){
+  .layout { height: 100dvh; }
+  .right  { overflow: hidden; }
+  .chat   { overflow: hidden; }
+  .chat__messages { overflow-y: auto; }
+}
