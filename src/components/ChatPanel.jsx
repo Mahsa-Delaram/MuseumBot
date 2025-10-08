@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import "../app.css";
 
 export default function ChatPanel({
   messages = [],
@@ -7,6 +8,16 @@ export default function ChatPanel({
   isTypingB = false,
 }) {
   const [text, setText] = useState("");
+
+  // ⬇️ anchor we scroll to whenever messages/typing change
+  const endRef = useRef(null);
+
+  useEffect(() => {
+    // scroll smoothly to the invisible anchor at the bottom
+    if (endRef.current) {
+      endRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [messages, isTypingA, isTypingB]);
 
   const submit = (e) => {
     e.preventDefault();
@@ -18,7 +29,14 @@ export default function ChatPanel({
 
   const Avatar = ({ src }) => (
     <span className="avatar">
-      <img src={src} alt="avatar" />
+      <img
+        src={src}
+        alt="" // ← prevents the word "avatar" from showing
+        width="28"
+        height="28" // ← avoids layout shift while loading
+        loading="eager" // ← load immediately (not lazy)
+        decoding="sync" // ← decode now to avoid delay
+      />
     </span>
   );
 
@@ -71,6 +89,9 @@ export default function ChatPanel({
             </div>
           </div>
         )}
+
+        {/* Invisible anchor to auto-scroll to */}
+        <div ref={endRef} />
       </div>
 
       <form className="chat__input" onSubmit={submit}>
