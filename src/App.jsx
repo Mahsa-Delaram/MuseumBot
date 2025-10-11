@@ -3,6 +3,20 @@ import Gallery from "./components/Gallery";
 import ChatPanel from "./components/ChatPanel";
 import "./app.css";
 
+/* ===== Utilities ===== */
+
+/** Build a compact plain-text history for the backend. */
+function buildHistory(list) {
+  return list
+    .slice(-12) // keep last 12 lines
+    .map((m) => {
+      const who =
+        m.role === "user" ? "User" : m.role === "agentA" ? "AgentA" : "AgentB";
+      return `${who}: ${m.text}`;
+    })
+    .join("\n");
+}
+
 /* avatars */
 const AGENT_A = { role: "agentA", avatar: "/images/agentA.png" };
 const AGENT_B = { role: "agentB", avatar: "/images/agentB.png" };
@@ -93,20 +107,8 @@ function decideResponder(text, lastResponder) {
   return lastResponder === "A" ? "B" : "A";
 }
 
-/* compact history */
-function buildHistory(list) {
-  return list
-    .slice(-8)
-    .map((m) => {
-      const who =
-        m.role === "user" ? "User" : m.role === "agentA" ? "AgentA" : "AgentB";
-      return `${who}: ${m.text}`;
-    })
-    .join("\n");
-}
-
 /* backend call */
-async function askAgent(role, message, currentRoom, history, lastArtwork) {
+async function askAgent({ role, message, currentRoom, history, lastArtwork }) {
   const res = await fetch("http://localhost:3001/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -114,9 +116,10 @@ async function askAgent(role, message, currentRoom, history, lastArtwork) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Request failed");
-  return data; // { reply, suggestedRoom, suggestedArtwork? }
+  return data; // { reply, suggestedRoom, suggestedArtwork }
 }
 
+/* ===== Component ===== */
 export default function App() {
   const [userName, setUserName] = useState("");
   const [room, setRoom] = useState("entrance");
@@ -192,27 +195,31 @@ export default function App() {
         const name = m[2];
         setUserName(name);
         const hist0 = buildHistory([...messages, { ...USER, text }]);
+
+        // A greets briefly
         typeThenReply(
           "A",
-          askAgent(
-            "agentA",
-            `The visitor's name is ${name}. Greet them briefly.`,
-            room,
-            hist0,
-            lastArtworkKey
-          ),
+          askAgent({
+            role: "agentA",
+            message: `The visitor's name is ${name}. Greet them briefly.`,
+            currentRoom: room,
+            history: hist0,
+            lastArtwork: lastArtworkKey,
+          }),
           350
         );
+
+        // B asks what to explore (no re-greeting)
         typeThenReply(
           "B",
-          askAgent(
-            "agentB",
-            `The visitor is ${name}. Ask what they want to explore (one short question). 
-   Do not greet; do not mention not greeting.`,
-            room,
-            hist,
-            lastArtworkKey
-          ),
+          askAgent({
+            role: "agentB",
+            message:
+              "Ask what they want to explore next (one short question). Do not greet; do not mention not greeting.",
+            currentRoom: room,
+            history: hist0,
+            lastArtwork: lastArtworkKey,
+          }),
           600
         );
         return;
@@ -229,19 +236,18 @@ export default function App() {
         setRoom(lastSuggestedRoom);
       }
       const hist1 = buildHistory([...messages, { ...USER, text }]);
-      // Ask Agent A to acknowledge move briefly (no re-greeting)
+
       typeThenReply(
         "A",
-        askAgent(
-          "agentA",
-          `The visitor just confirmed. Acknowledge and briefly guide them in the ${
+        askAgent({
+          role: "agentA",
+          message: `The visitor just confirmed. Acknowledge and briefly guide them in the ${
             lastSuggestedRoom || room
           } room. Do not greet again.`,
-          room,
-          hist1,
-          lastArtworkKey
-        ),
-
+          currentRoom: room,
+          history: hist1,
+          lastArtwork: lastArtworkKey,
+        }),
         420
       );
       return;
@@ -267,7 +273,13 @@ export default function App() {
 
     typeThenReply(
       responder,
-      askAgent(role, text, room, hist, lastArtworkKey),
+      askAgent({
+        role,
+        message: text,
+        currentRoom: room,
+        history: hist,
+        lastArtwork: lastArtworkKey,
+      }),
       responder === "A" ? 480 : 620
     );
   };

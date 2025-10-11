@@ -1,10 +1,24 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.jsx'
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import App from "./App.jsx";
+import Intro from "./pages/Intro.jsx";
+import "./app.css";
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+function Root() {
+  const [visitorName, setVisitorName] = React.useState("");
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={<Intro onStart={(name) => setVisitorName(name)} />}
+        />
+        <Route path="/museum" element={<App initialName={visitorName} />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Root />);
