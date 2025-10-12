@@ -5,51 +5,66 @@ import "../app.css";
 export default function Intro({ onStart }) {
   const nav = useNavigate();
   const [name, setName] = useState("");
+  const canEnter = name.trim().length > 0;
 
-  // Preload key images for smooth transition
+  // preload a few key images
   useEffect(() => {
-    const preload = [
+    [
       "/images/entrance.jpg",
       "/images/modern.jpg",
       "/images/classic.jpg",
-    ];
-    preload.forEach((src) => {
+    ].forEach((src) => {
       const img = new Image();
       img.src = src;
     });
   }, []);
 
-  // Handle Enter button
-  const startMuseum = () => {
-    const trimmed = name.trim();
-    onStart?.(trimmed);
+  const startWithName = () => {
+    if (!canEnter) return; // safety
+    onStart?.(name.trim());
+    nav("/museum");
+  };
+
+  const startAsGuest = () => {
+    onStart?.(""); // no name
     nav("/museum");
   };
 
   return (
     <div className="intro">
       <div className="intro__card">
-        <h1 className="intro__title">MuseumBot</h1>
-        <p className="intro__subtitle">
-          Step into a virtual museum where two AI guides will help you explore
-          the world’s greatest masterpieces.
+        <h1>MuseumBot</h1>
+        <p>
+          Step into a virtual museum where two AI guides help you explore the
+          world’s greatest masterpieces.
         </p>
 
-        <label className="intro__label">
+        <label className="intro__label" htmlFor="visitorName">
           Your name (optional)
-          <input
-            className="intro__input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Mahsa"
-          />
         </label>
+        <input
+          id="visitorName"
+          className="intro__input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Mahsa"
+        />
 
-        <div className="intro__buttons">
-          <button className="intro__cta" onClick={startMuseum}>
+        <div className="intro__actions">
+          <button
+            className="intro__cta"
+            onClick={startWithName}
+            disabled={!canEnter}
+            title={
+              !canEnter
+                ? "Enter a name to enable this button"
+                : "Enter the museum"
+            }
+          >
             Enter the Museum
           </button>
-          <button className="intro__ghost" onClick={() => nav("/museum")}>
+
+          <button className="intro__ghost" onClick={startAsGuest}>
             Continue as Guest
           </button>
         </div>

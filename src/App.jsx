@@ -120,21 +120,40 @@ async function askAgent({ role, message, currentRoom, history, lastArtwork }) {
 }
 
 /* ===== Component ===== */
-export default function App() {
-  const [userName, setUserName] = useState("");
+export default function App({ initialName = "" }) {
+  const [userName, setUserName] = useState(initialName);
   const [room, setRoom] = useState("entrance");
   const [imageSrc, setImageSrc] = useState(ROOM_MAP[room]);
 
-  const [messages, setMessages] = useState(() => [
-    {
-      ...AGENT_A,
-      text: "Hi! Welcome to the museum. I’m Agent A (tourist guide).",
-    },
-    {
-      ...AGENT_B,
-      text: "Hello! I’m Agent B (art guide). Ask me about any masterpiece.",
-    },
-  ]);
+  // initial messages depend on whether we have a name
+  const initialMessages = React.useMemo(() => {
+    if (initialName) {
+      return [
+        {
+          ...AGENT_A,
+          text: `Hi ${initialName}! Welcome to the museum. I’m Agent A (tourist guide).`,
+        },
+        {
+          ...AGENT_B,
+          text: `Hello ${initialName}! I’m Agent B (art guide). Ask me about any masterpiece.`,
+        },
+      ];
+    }
+    return [
+      {
+        ...AGENT_A,
+        text: "Hi! Welcome to the museum. I’m Agent A (tourist guide).",
+      },
+      {
+        ...AGENT_B,
+        text: "Hello! I’m Agent B (art guide). Ask me about any masterpiece.",
+      },
+    ];
+  }, [initialName]);
+
+  const [messages, setMessages] = useState(() => initialMessages);
+
+  // ... keep the rest of your App.jsx exactly as you have it now
 
   const [isTypingA, setTypingA] = useState(false);
   const [isTypingB, setTypingB] = useState(false);

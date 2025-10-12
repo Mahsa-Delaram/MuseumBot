@@ -328,3 +328,12 @@ width: 100%;
   cursor: pointer;
 }
 .intro__ghost:hover { filter: brightness(1.05); }
+
+.intro__actions { display:flex; gap:10px; margin-top:12px; }
+.intro__cta:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  filter: grayscale(30%);
+}
+.intro__label { display:block; margin-bottom:6px; }
+.intro__input { margin-bottom:10px; }
