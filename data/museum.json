@@ -1,146 +1,39 @@
 {
   "rooms": {
-    "entrance": {
-      "title": "Entrance Hall",
-      "image": "/images/entrance.jpg",
-      "highlights": ["Welcome area with a grand overview of the museum’s sections."]
-    },
-    "classic": {
-      "title": "Classical Paintings Room",
-      "image": "/images/classic.jpg",
-      "highlights": [
-        "Home to masterpieces from the Renaissance and Baroque periods.",
-        "Rich in historical and religious symbolism."
-      ]
-    },
-    "modern": {
-      "title": "Modern / Abstract Room",
-      "image": "/images/modern.jpg",
-      "highlights": [
-        "Features 19th–20th century works exploring expression, emotion, and form.",
-        "Includes Impressionist, Surrealist, and Expressionist art."
-      ]
-    },
-    "sculpture": {
-      "title": "Sculpture Hall",
-      "image": "/images/sculpture.jpg",
-      "highlights": ["Marble, bronze, and modern sculptures displayed under soft lighting."]
-    },
-    "landscape": {
-      "title": "Landscape Gallery",
-      "image": "/images/landscape.jpg",
-      "highlights": ["Dedicated to nature-inspired artworks across all centuries."]
-    }
+    "entrance": { "title": "Entrance Hall", "desc": "The museum entrance and main hall." },
+    "classic": { "title": "Classical Paintings Room", "desc": "Renaissance and Baroque masterpieces." },
+    "modern": { "title": "Modern / Abstract Room", "desc": "Modernist and 20th-century art." },
+    "sculpture": { "title": "Sculpture Room", "desc": "3D art and statues." },
+    "landscape": { "title": "Landscape Room", "desc": "Nature-themed artworks." }
   },
-
   "artworks": {
     "mona lisa": {
       "title": "Mona Lisa",
       "artist": "Leonardo da Vinci",
       "year": "1503–1506",
-      "medium": "Oil on poplar panel",
       "room": "classic",
-      "image": "/images/mona_lisa.jpg",
-      "summary": "The most famous portrait in the world, celebrated for the sitter’s enigmatic smile and Leonardo’s mastery of light and shadow."
-    },
-    "the last supper": {
-      "title": "The Last Supper",
-      "artist": "Leonardo da Vinci",
-      "year": "1495–1498",
-      "medium": "Tempera and oil on plaster",
-      "room": "classic",
-      "image": "/images/the_last_supper.jpg",
-      "summary": "Depicts Christ and his disciples during their final meal, capturing dramatic emotion and divine composition."
+      "desc": "The most famous portrait in the world, celebrated for its enigmatic smile."
     },
     "girl with a pearl earring": {
       "title": "Girl with a Pearl Earring",
       "artist": "Johannes Vermeer",
       "year": "1665",
-      "medium": "Oil on canvas",
       "room": "classic",
-      "image": "/images/girl_with_pearl.jpg",
-      "summary": "Sometimes called the Dutch Mona Lisa, admired for its intimacy and Vermeer’s mastery of light."
-    },
-    "birth of venus": {
-      "title": "The Birth of Venus",
-      "artist": "Sandro Botticelli",
-      "year": "c. 1485",
-      "medium": "Tempera on canvas",
-      "room": "classic",
-      "image": "/images/birth_of_venus.jpg",
-      "summary": "Depicts the goddess Venus emerging from the sea, symbolizing beauty and divine love in Renaissance art."
-    },
-    "the night watch": {
-      "title": "The Night Watch",
-      "artist": "Rembrandt van Rijn",
-      "year": "1642",
-      "medium": "Oil on canvas",
-      "room": "classic",
-      "image": "/images/the_night_watch.jpg",
-      "summary": "A dynamic group portrait capturing civic guardsmen in motion, showcasing Rembrandt’s dramatic use of light."
+      "desc": "Known as the 'Mona Lisa of the North', admired for its light and color."
     },
     "starry night": {
       "title": "The Starry Night",
       "artist": "Vincent van Gogh",
       "year": "1889",
-      "medium": "Oil on canvas",
       "room": "modern",
-      "image": "/images/starry_night.jpg",
-      "summary": "A swirling night sky over Saint-Rémy, expressing deep emotion through color, rhythm, and movement."
+      "desc": "Depicts the swirling night sky over Saint-Rémy with expressive brushwork."
     },
     "the scream": {
       "title": "The Scream",
       "artist": "Edvard Munch",
       "year": "1893",
-      "medium": "Tempera and pastels on cardboard",
       "room": "modern",
-      "image": "/images/the_scream.jpg",
-      "summary": "An icon of modern art that captures existential anxiety with haunting intensity."
-    },
-    "guernica": {
-      "title": "Guernica",
-      "artist": "Pablo Picasso",
-      "year": "1937",
-      "medium": "Oil on canvas",
-      "room": "modern",
-      "image": "/images/guernica.jpg",
-      "summary": "A monumental anti-war mural depicting the tragedies of the Spanish Civil War through fragmented cubist forms."
-    },
-    "the persistence of memory": {
-      "title": "The Persistence of Memory",
-      "artist": "Salvador Dalí",
-      "year": "1931",
-      "medium": "Oil on canvas",
-      "room": "modern",
-      "image": "/images/the_persistence_of_memory.jpg",
-      "summary": "Surrealist masterpiece known for its melting clocks, exploring time, dreams, and subconscious perception."
-    },
-    "the kiss": {
-      "title": "The Kiss",
-      "artist": "Gustav Klimt",
-      "year": "1907–1908",
-      "medium": "Oil and gold leaf on canvas",
-      "room": "modern",
-      "image": "/images/the_kiss.jpg",
-      "summary": "Celebrates love and intimacy through gold patterns and flowing, abstract forms."
-    },
-    "american gothic": {
-      "title": "American Gothic",
-      "artist": "Grant Wood",
-      "year": "1930",
-      "medium": "Oil on beaverboard",
-      "room": "modern",
-      "image": "/images/american_gothic.jpg",
-      "summary": "Depicts a farmer and his daughter before a rural home—an icon of American realism and resilience."
-    },
-    "water lilies": {
-      "title": "Water Lilies",
-      "artist": "Claude Monet",
-      "year": "1916–1919",
-      "medium": "Oil on canvas",
-      "room": "landscape",
-      "image": "/images/water_lilies.jpg",
-      "summary": "Monet’s luminous depiction of his garden pond, dissolving reflection and depth into pure color."
+      "desc": "An icon of existential angst, showing a figure crying out against a blood-red sky."
     }
   }
 }

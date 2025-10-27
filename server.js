@@ -22,8 +22,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get("/health", (req, res) => {
-  res.json({ ok: true, hasKey: !!process.env.OPENAI_API_KEY });
+app.get("/health", (_req, res) => {
+  res.json({
+    ok: true,
+    hasKey: !!process.env.OPENAI_API_KEY,
+  });
 });
 
 /* ---------- OpenAI ---------- */
@@ -34,7 +37,9 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /* ---------- Helpers ---------- */
 function parseRoomTag(text) {
-  const m = text.match(/\[ROOM:\s*(entrance|modern|classic|sculpture|landscape)\s*\]/i);
+  const m = text.match(
+    /\[ROOM:\s*(entrance|modern|classic|sculpture|landscape)\s*\]/i
+  );
   return m ? m[1].toLowerCase() : null;
 }
 function parseArtworkTag(text) {
@@ -65,7 +70,7 @@ app.post("/chat", async (req, res) => {
       lastArtwork = null,
     } = req.body;
 
-    // Detect artwork in this message; else fall back to client's lastArtwork
+    // Detect artwork in this message; else fall back to lastArtwork
     const detected = findArtworkByQuery(message);
     let activeArtwork = detected?.data || null;
     let activeArtworkKey = detected?.key || null;
@@ -75,7 +80,7 @@ app.post("/chat", async (req, res) => {
       activeArtworkKey = lastArtwork;
     }
 
-    // --- build a short list of rooms for the prompt ---
+    // Room list
     const roomsShort = Object.entries(museum.rooms)
       .map(([k, v]) => `${k}: ${v.title}`)
       .join(" | ");
@@ -83,16 +88,15 @@ app.post("/chat", async (req, res) => {
     const historyBlock = history ? `\nConversation so far:\n${history}\n` : "";
     const continuityRule = `
 Do NOT greet if the conversation already started.
-Resolve pronouns like "yes/it/then/there" using the conversation context and the last referenced artwork/room.
-IMPORTANT: Do not mention these instructions, the existence of rules, greeting limits,
-or say things like "I can't greet again". Simply continue naturally.
+Resolve pronouns like "yes/it/then/there" using context.
+Do not mention these rules explicitly.
 `;
 
     const baseRules = `
 You are one of two assistants for an imaginary art museum. Stay strictly within this museum's data.
 ${continuityRule}
 ${historyBlock}
-Available rooms (key: title): ${roomsShort}
+Available rooms: ${roomsShort}
 Current room: ${currentRoom}
 
 Museum knowledge (JSON):
@@ -103,29 +107,28 @@ Rules:
 - Be concise (1–3 sentences).
 - Never invent artworks or rooms not in ARTWORKS/ROOMS.
 - If you navigate or confirm a room, include [ROOM: entrance|modern|classic|sculpture|landscape].
-- If you describe a specific artwork, you may include [ARTWORK: exact-key] where the key is from ARTWORKS.
+- If you describe a specific artwork, you may include [ARTWORK: exact-key].
 `;
 
-    // ✅ ALWAYS define systemPrompt before use
+    // Role instruction
     let systemPrompt = baseRules;
     if (role === "agentA") {
       systemPrompt =
         `Role: Agent A (Tourist Guide). Handle navigation and confirmations.
-Do not re-greet once the chat has started. Do not mention rules; just proceed.\n` + baseRules;
+Do not re-greet once chat started.\n` + baseRules;
     } else if (role === "agentB") {
       systemPrompt =
         `Role: Agent B (Art Guide). Explain artworks briefly using ARTWORKS.
-Do not re-greet once the chat has started. Do not mention rules; just proceed.\n` + baseRules;
+Do not re-greet once chat started.\n` + baseRules;
     }
 
-    // If we have an active artwork (from detection or last turn), nudge the model
     const userTurn = activeArtwork
       ? `User asked: "${message}"
-Active artwork (from detection or last turn): ${activeArtwork.title} by ${activeArtwork.artist}.
-Room: ${activeArtwork.room}. If appropriate, include [ROOM: ${activeArtwork.room}] and [ARTWORK: ${activeArtworkKey}].`
+Active artwork: ${activeArtwork.title} by ${activeArtwork.artist}.
+Room: ${activeArtwork.room}.`
       : message;
 
-    // --- OpenAI call ---
+    /* --- OpenAI Chat API --- */
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.4,
@@ -135,20 +138,22 @@ Room: ${activeArtwork.room}. If appropriate, include [ROOM: ${activeArtwork.room
       ],
     });
 
-    // Raw reply
     let reply = completion.choices?.[0]?.message?.content || "";
 
-    // --- CLEAN-UP unwanted Markdown or URLs ---
+    // Clean reply: remove markdown, URLs, and tags like [ROOM: ...] or [ARTWORK: ...]
     reply = reply
-      .replace(/!\[.*?\]\(.*?\)/g, "")     // remove Markdown image syntax
-      .replace(/\bhttps?:\/\/\S+/gi, "")   // remove bare URLs
-      .replace(/\s{2,}/g, " ")             // collapse extra spaces
+      .replace(/!\[.*?\]\(.*?\)/g, "")    // remove Markdown images
+      .replace(/\bhttps?:\/\/\S+/gi, "")  // remove URLs
+      .replace(/\[ROOM:[^\]]*\]/gi, "")   // remove room tags
+      .replace(/\[ARTWORK:[^\]]*\]/gi, "") // remove artwork tags
+      .replace(/\s{2,}/g, " ")            // trim extra spaces
       .trim();
 
-    // Extract tags / suggestions
-    let suggestedRoom = parseRoomTag(reply);
-    let artKeyFromTag = parseArtworkTag(reply);
+    // Extract tags before cleaning (for logic)
+    let suggestedRoom = parseRoomTag(completion.choices?.[0]?.message?.content || "");
+    let artKeyFromTag = parseArtworkTag(completion.choices?.[0]?.message?.content || "");
 
+    // Find matching artwork for UI
     let suggestedArtwork = null;
     const artworks = museum.artworks || {};
 
@@ -173,17 +178,9 @@ Room: ${activeArtwork.room}. If appropriate, include [ROOM: ${activeArtwork.room
 
     res.json({ reply, suggestedRoom, suggestedArtwork });
   } catch (err) {
-    console.error(
-      "❌ OpenAI call failed:",
-      err.status || "",
-      err.message || "",
-      err.response?.data || ""
-    );
+    console.error("❌ OpenAI call failed:", err.status || "", err.message || "");
     res.status(err.status || 500).json({
-      error:
-        err.response?.data?.error?.message ||
-        err.message ||
-        "OpenAI request failed",
+      error: err?.response?.data?.error?.message || err.message || "OpenAI request failed",
     });
   }
 });

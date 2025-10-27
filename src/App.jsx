@@ -1,14 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Gallery from "./components/Gallery";
 import ChatPanel from "./components/ChatPanel";
 import "./app.css";
 
 /* ===== Utilities ===== */
-
-/** Build a compact plain-text history for the backend. */
 function buildHistory(list) {
   return list
-    .slice(-12) // keep last 12 lines
+    .slice(-12)
     .map((m) => {
       const who =
         m.role === "user" ? "User" : m.role === "agentA" ? "AgentA" : "AgentB";
@@ -22,7 +20,7 @@ const AGENT_A = { role: "agentA", avatar: "/images/agentA.png" };
 const AGENT_B = { role: "agentB", avatar: "/images/agentB.png" };
 const USER = { role: "user", avatar: "/images/user.png" };
 
-/* room images */
+/* rooms */
 const ROOM_MAP = {
   entrance: "/images/entrance.jpg",
   modern: "/images/modern.jpg",
@@ -31,31 +29,31 @@ const ROOM_MAP = {
   landscape: "/images/landscape.jpg",
 };
 
-/* artwork images — keys LOWERCASE, match museum.json keys */
+/* ------- ONLY FOUR MASTERPIECES ------- */
 const ARTWORK_MAP = {
   "mona lisa": { image: "/images/mona_lisa.jpg", room: "classic" },
-  "the last supper": { image: "/images/the_last_supper.jpg", room: "classic" },
   "girl with a pearl earring": {
     image: "/images/girl_with_pearl.jpg",
     room: "classic",
   },
-  "birth of venus": { image: "/images/birth_of_venus.jpg", room: "classic" },
-  "the night watch": { image: "/images/the_night_watch.jpg", room: "classic" },
-
   "starry night": { image: "/images/starry_night.jpg", room: "modern" },
   "the scream": { image: "/images/the_scream.jpg", room: "modern" },
-  guernica: { image: "/images/guernica.jpg", room: "modern" },
-  "the persistence of memory": {
-    image: "/images/the_persistence_of_memory.jpg",
-    room: "modern",
-  },
-  "the kiss": { image: "/images/the_kiss.jpg", room: "modern" },
-  "american gothic": { image: "/images/american_gothic.jpg", room: "modern" },
-
-  "water lilies": { image: "/images/water_lilies.jpg", room: "landscape" },
 };
 
-/* ---- helpers ---- */
+/* aliases */
+const ALIASES = {
+  monalisa: "mona lisa",
+  "mona-lisa": "mona lisa",
+  mona: "mona lisa",
+  girlwithapearlearring: "girl with a pearl earring",
+  "girl-with-a-pearl-earring": "girl with a pearl earring",
+  pearlearring: "girl with a pearl earring",
+  starrynight: "starry night",
+  "the-starry-night": "starry night",
+  scream: "the scream",
+};
+
+/* helpers */
 function pickRoomByText(t) {
   const s = t.toLowerCase();
   if (/(modern|abstract|contemporary)/.test(s)) return "modern";
@@ -66,35 +64,45 @@ function pickRoomByText(t) {
   return null;
 }
 
-function pickArtworkByText(t) {
-  const s = t.toLowerCase();
-  return Object.keys(ARTWORK_MAP).find((k) => s.includes(k)) || null;
+function normalize(s) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
-/* decide responder */
+function pickArtworkByText(t) {
+  const s = t.toLowerCase();
+  const direct = Object.keys(ARTWORK_MAP).find((k) => s.includes(k)) || null;
+  if (direct) return direct;
+  const sn = normalize(s);
+  for (const [alias, canonical] of Object.entries(ALIASES)) {
+    if (sn.includes(normalize(alias))) return canonical;
+  }
+  return null;
+}
+
+function isAffirmative(t) {
+  return /^(y(es)?|yeah|yup|ok(ay)?|sure|please do|go ahead|let's go)\b/i.test(
+    t.trim()
+  );
+}
+function isNegative(t) {
+  return /^(no|nope|not now|cancel|stop)\b/i.test(t.trim());
+}
+
+/* who should reply (when not in a pending permission step) */
 function decideResponder(text, lastResponder) {
   const s = text.toLowerCase().trim();
 
-  // confirmations → Agent A (navigation)
-  if (
-    /^(y(es)?|yeah|sure|ok(ay)?|please do|go ahead|take me|let's go)\b/.test(s)
-  )
-    return "A";
-
-  // greetings / name → Agent A
   if (/^(hi|hello|hey|salam|salaam)\b/.test(s)) return "A";
   if (/\b(my name is|i['’]?\s*m|i am)\b/.test(s)) return "A";
 
-  // navigation intent → Agent A
   if (
-    /\b(show me( then)?|take me( there)?|go( there)?|navigate|where is|how do i get|back to)\b/.test(
+    /\b(take me( there)?|go( there)?|navigate|where is|how do i get|back to)\b/.test(
       s
     )
   )
     return "A";
   if (pickRoomByText(s)) return "A";
 
-  // artwork info → Agent B
   if (
     /\b(tell me about|describe|who painted|when was|style|meaning|analysis|context|history|show me)\b/.test(
       s
@@ -103,7 +111,6 @@ function decideResponder(text, lastResponder) {
     return "B";
   if (pickArtworkByText(s)) return "B";
 
-  // ambiguous → alternate
   return lastResponder === "A" ? "B" : "A";
 }
 
@@ -125,8 +132,13 @@ export default function App({ initialName = "" }) {
   const [room, setRoom] = useState("entrance");
   const [imageSrc, setImageSrc] = useState(ROOM_MAP[room]);
 
-  // initial messages depend on whether we have a name
-  const initialMessages = React.useMemo(() => {
+  // permission state machine
+  // idle → awaitingRoomConfirm → awaitingArtworkConfirm
+  const [pendingStep, setPendingStep] = useState("idle"); // 'idle' | 'awaitRoomConfirm' | 'awaitArtworkConfirm'
+  const [pendingArtworkKey, setPendingArtworkKey] = useState(null); // e.g., 'mona lisa'
+  const [pendingRoom, setPendingRoom] = useState(null); // e.g., 'classic'
+
+  const initialMessages = useMemo(() => {
     if (initialName) {
       return [
         {
@@ -152,9 +164,6 @@ export default function App({ initialName = "" }) {
   }, [initialName]);
 
   const [messages, setMessages] = useState(() => initialMessages);
-
-  // ... keep the rest of your App.jsx exactly as you have it now
-
   const [isTypingA, setTypingA] = useState(false);
   const [isTypingB, setTypingB] = useState(false);
   const [lastResponder, setLastResponder] = useState("B");
@@ -165,7 +174,7 @@ export default function App({ initialName = "" }) {
     setImageSrc(ROOM_MAP[room] || ROOM_MAP.entrance);
   }, [room]);
 
-  const typeThenReply = async (agent, textPromise, delay = 600) => {
+  const typeThenReply = async (agent, textPromise, delay = 550) => {
     const setTyping = agent === "A" ? setTypingA : setTypingB;
     const who = agent === "A" ? AGENT_A : AGENT_B;
 
@@ -174,14 +183,17 @@ export default function App({ initialName = "" }) {
       await new Promise((r) => setTimeout(r, delay));
       const { reply, suggestedRoom, suggestedArtwork } = await textPromise;
 
-      if (suggestedRoom) {
-        setRoom(suggestedRoom);
-        setLastSuggestedRoom(suggestedRoom);
-      }
-      if (suggestedArtwork?.image) {
-        setImageSrc(suggestedArtwork.image);
-        if (suggestedArtwork.key)
-          setLastArtworkKey(suggestedArtwork.key.toLowerCase());
+      // we do NOT auto-navigate or auto-show during permission steps
+      if (pendingStep === "idle") {
+        if (suggestedRoom) {
+          setRoom(suggestedRoom);
+          setLastSuggestedRoom(suggestedRoom);
+        }
+        if (suggestedArtwork?.image) {
+          setImageSrc(suggestedArtwork.image);
+          if (suggestedArtwork.key)
+            setLastArtworkKey(suggestedArtwork.key.toLowerCase());
+        }
       }
 
       setMessages((prev) => [...prev, { ...who, text: reply }]);
@@ -199,11 +211,99 @@ export default function App({ initialName = "" }) {
     }
   };
 
+  // helper wrappers for agent A/B
+  const sayA = (message, delay = 420) =>
+    typeThenReply(
+      "A",
+      askAgent({
+        role: "agentA",
+        message,
+        currentRoom: room,
+        history: buildHistory(messages),
+        lastArtwork: lastArtworkKey,
+      }),
+      delay
+    );
+
+  const sayB = (message, delay = 520) =>
+    typeThenReply(
+      "B",
+      askAgent({
+        role: "agentB",
+        message,
+        currentRoom: room,
+        history: buildHistory(messages),
+        lastArtwork: lastArtworkKey,
+      }),
+      delay
+    );
+
   const onSend = async (text) => {
     // user bubble
     setMessages((prev) => [...prev, { ...USER, text }]);
 
-    // name capture
+    /* ===== permission steps take precedence ===== */
+    if (pendingStep === "awaitRoomConfirm") {
+      if (isAffirmative(text)) {
+        // move to the room
+        if (pendingRoom) setRoom(pendingRoom);
+        setPendingStep("awaitArtworkConfirm");
+
+        // Ask permission to show the specific artwork
+        await sayA(
+          `We are in the ${pendingRoom} room now. Ask (one short question) if the visitor wants to see "${pendingArtworkKey}".`
+        );
+        return;
+      }
+      if (isNegative(text)) {
+        // cancel
+        setPendingStep("idle");
+        setPendingArtworkKey(null);
+        setPendingRoom(null);
+        await sayA("No problem. What would you like to explore instead?");
+        return;
+      }
+      // if user typed something else while we wait, gently re-ask
+      await sayA(
+        `Would you like me to take you to the ${pendingRoom} room to see "${pendingArtworkKey}"?`
+      );
+      return;
+    }
+
+    if (pendingStep === "awaitArtworkConfirm") {
+      if (isAffirmative(text)) {
+        // show the artwork image
+        const art = ARTWORK_MAP[pendingArtworkKey];
+        if (art?.image) setImageSrc(art.image);
+        setLastArtworkKey(pendingArtworkKey);
+
+        // done with the flow
+        setPendingStep("idle");
+        const shownKey = pendingArtworkKey;
+        setPendingArtworkKey(null);
+        setPendingRoom(null);
+
+        // Now Agent B gives the info (only AFTER showing)
+        await sayB(
+          `Give a concise (1–2 sentence) description of "${shownKey}". Do not include navigation details.`
+        );
+        return;
+      }
+      if (isNegative(text)) {
+        setPendingStep("idle");
+        const cancelledRoom = pendingRoom;
+        setPendingArtworkKey(null);
+        setPendingRoom(null);
+        await sayA(
+          `Okay. We're in the ${cancelledRoom} room. What would you like to see next?`
+        );
+        return;
+      }
+      await sayA(`Would you like me to show you "${pendingArtworkKey}" now?`);
+      return;
+    }
+
+    /* ===== name capture (only when not in permission steps) ===== */
     if (!userName) {
       const m =
         text.match(
@@ -215,7 +315,6 @@ export default function App({ initialName = "" }) {
         setUserName(name);
         const hist0 = buildHistory([...messages, { ...USER, text }]);
 
-        // A greets briefly
         typeThenReply(
           "A",
           askAgent({
@@ -228,7 +327,6 @@ export default function App({ initialName = "" }) {
           350
         );
 
-        // B asks what to explore (no re-greeting)
         typeThenReply(
           "B",
           askAgent({
@@ -245,47 +343,26 @@ export default function App({ initialName = "" }) {
       }
     }
 
-    // confirmation intent → if we have a lastSuggestedRoom, navigate immediately
-    if (
-      /^(y(es)?|yeah|sure|ok(ay)?|please do|go ahead|let's go)\b/i.test(
-        text.trim()
-      )
-    ) {
-      if (lastSuggestedRoom) {
-        setRoom(lastSuggestedRoom);
-      }
-      const hist1 = buildHistory([...messages, { ...USER, text }]);
+    /* ===== detect direct artwork request → start permission flow ===== */
+    const artKey = pickArtworkByText(text);
+    if (artKey && ARTWORK_MAP[artKey]) {
+      const { room: artRoom } = ARTWORK_MAP[artKey];
+      setPendingArtworkKey(artKey);
+      setPendingRoom(artRoom);
+      setPendingStep("awaitRoomConfirm");
 
-      typeThenReply(
-        "A",
-        askAgent({
-          role: "agentA",
-          message: `The visitor just confirmed. Acknowledge and briefly guide them in the ${
-            lastSuggestedRoom || room
-          } room. Do not greet again.`,
-          currentRoom: room,
-          history: hist1,
-          lastArtwork: lastArtworkKey,
-        }),
-        420
+      // Ask permission to navigate first (no info yet, no image yet)
+      await sayA(
+        `The visitor asked for "${artKey}". Ask (one short question) for permission to go to the ${artRoom} room.`
       );
       return;
     }
 
-    // instant artwork switch (no wait)
-    const artKey = pickArtworkByText(text);
-    if (artKey && ARTWORK_MAP[artKey]) {
-      const { image, room: artRoom } = ARTWORK_MAP[artKey];
-      if (artRoom) setRoom(artRoom);
-      if (image) setImageSrc(image);
-      setLastArtworkKey(artKey);
-    }
-
-    // local room routing (immediate)
+    /* ===== plain room routing (no pending flow) ===== */
     const target = pickRoomByText(text);
     if (target) setRoom(target);
 
-    // decide responder; send history + lastArtwork
+    /* ===== default responder ===== */
     const responder = decideResponder(text, lastResponder);
     const role = responder === "A" ? "agentA" : "agentB";
     const hist = buildHistory([...messages, { ...USER, text }]);
