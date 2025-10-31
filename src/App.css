@@ -1,30 +1,30 @@
 :root {
-  --bg: #0f172a;          /* slate-900 */
-  --panel: #111827;       /* gray-900 */
-  --card: #0b1220;        /* dark card */
-  --text: #e5e7eb;        /* gray-200 */
-  --muted: #94a3b8;       /* slate-400 */
+  --bg: #0f172a;         
+  --panel: #111827;      
+  --card: #0b1220;        
+  --text: #e5e7eb;      
+  --muted: #94a3b8;       
 
-  --agentA: #60a5fa;      /* blue-400 */
-  --agentB: #f87171;      /* red-400 */
-  --user:   #a78bfa;      /* violet-400 */
+  --agentA: #60a5fa;     
+  --agentB: #f87171;      
+  --user:   #a78bfa;     
 
-  --brand: #2563eb;       /* blue-600 */
-  --brand-dark: #1f3a8a;  /* blue-900 */
+  --brand: #2563eb;      
+  --brand-dark: #1f3a8a;  
 }
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, Arial; }
 
-/* ===== Layout (desktop default) ===== */
+
 .layout {
   display: grid;
-  grid-template-columns: 1fr 420px;   /* left image flexes, right chat fixed */
-  height: 100dvh;                     /* mobile-safe viewport */
+  grid-template-columns: 1fr 420px;  
+  height: 100dvh;                     
 }
 
-/* Left pane */
+
 .left {
   background: linear-gradient(180deg, #0b1220, #111827);
   border-right: 1px solid #1f2937;
@@ -42,24 +42,24 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-san
 .gallery img {
   width: 100%;
   height: 100%;
-  object-fit: cover;    /* fills the pane like the mockup */
+  object-fit: cover;    
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,.35);
 }
 
-/* Right pane (chat) */
+
 .right {
   background: var(--panel);
   display: flex;
   flex-direction: column;
-  min-width: 0;         /* prevents overflow in flex/grid children */
+  min-width: 0;        
 }
 
 .chat { 
   height: 100%; 
   display: flex; 
   flex-direction: column;
-  background: var(--panel);           /* fixed: no bright red */
+  background: var(--panel);         
 }
 
 .chat__header { 
@@ -69,7 +69,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-san
 }
 .chat__header h2 { margin: 0; font-size: clamp(14px,1.4vw,16px); color: var(--muted); }
 
-/* Scrollable messages area */
+
 .chat__messages {
   flex: 1;
   padding: 12px;
@@ -79,10 +79,10 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-san
   overscroll-behavior: contain;
   background:#e3e4e4;   
   color: #111827;
-  scroll-behavior: smooth;            /* auto-scroll looks nice */
+  scroll-behavior: smooth;            
 }
 
-/* Rows with avatar outside bubble */
+
 .message-row {
   display: flex;
   align-items: flex-end;
@@ -104,10 +104,10 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-san
   height: 28px;
   border-radius: 50%;
   object-fit: cover;
-  display: block;  /* prevents alt text flash */
+  display: block;  
 }
 
-/* Bubbles */
+
 .bubble {
   max-width: min(72%, 560px);
   padding: 10px 12px;
@@ -131,11 +131,11 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-san
 .bubble--user   { 
   background: rgba(167,139,250,.1);
   border-color: rgba(167,139,250,.35); 
-  margin-left: auto;     /* right align in flex row */
+  margin-left: auto;     
   text-align: left;
 }
 
-/* Input row */
+
 .chat__input {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -153,7 +153,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-san
   background: #0f172a;
   color: var(--text);
   outline: none;
-  min-width: 0; /* allow shrinking on small screens */
+  min-width: 0; 
 }
 
 .chat__input button {
@@ -166,34 +166,34 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-san
   cursor: pointer;
 }
 
-/* ====== Responsive breakpoints ====== */
 
-/* Tablet: tighten chat column, widen bubbles slightly */
+
+
 @media (max-width: 1200px) {
   .layout { grid-template-columns: 1fr 360px; }
   .bubble { max-width: min(78%, 520px); }
 }
 
-/* Mobile: stack vertically (image on top, chat below) */
+
 @media (max-width: 900px) {
   .layout {
-    grid-template-columns: 1fr;        /* single column */
-    grid-template-rows: auto 1fr;      /* image height first, chat fills rest */
+    grid-template-columns: 1fr;       
+    grid-template-rows: auto 1fr;     
     height: 100dvh;
   }
   .left {
-    height: 44dvh;                     /* image block */
+    height: 44dvh;                   
     border-right: none;
     border-bottom: 1px solid #1f2937;
   }
-  .right { height: 56dvh; }            /* chat block */
+  .right { height: 56dvh; }           
 
   .chat__messages { padding: 10px; gap: 8px; }
   .bubble { max-width: 85%; font-size: clamp(13px, 2.8vw, 15px); }
   .avatar img { width: 26px; height: 26px; }
 }
 
-/* Very small phones: make input easier to tap */
+
 @media (max-width: 420px) {
   .chat__input {
     grid-template-columns: 1fr 84px;
@@ -203,10 +203,10 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-san
   .chat__input button { padding: 0 12px; }
 }
 
-/* typing bubble style (inherits bubble color) */
+
 .typing { opacity: 0.9; }
 
-/* three-dot animation */
+
 .dots {
   display: inline-flex;
   gap: 6px;
@@ -216,7 +216,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-san
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: currentColor;          /* use bubble’s text color */
+  background: currentColor;         
   opacity: 0.35;
   animation: blink 1.2s infinite;
 }
@@ -228,14 +228,14 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-san
   40% { opacity: 0.9; transform: translateY(-1px); }
 }
 
-/* ===== Lock app to viewport; only messages scroll ===== */
+
 html, body, #root { height: 100%; overflow: hidden; }
 .layout { height: 100dvh; }
 .right  { display: flex; flex-direction: column; overflow: hidden; }
 .chat   { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 .chat__messages { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 
-/* ===== Optional chat-panel classes (if used elsewhere) ===== */
+
 .chat-panel {
   display: flex;
   flex-direction: column;
@@ -250,7 +250,7 @@ html, body, #root { height: 100%; overflow: hidden; }
   scroll-behavior: smooth;
 }
 
-/* ===== Intro / Landing page ===== */
+
 .intro {
 min-height: 100dvh;
 display: grid;
@@ -269,7 +269,7 @@ padding: 24px;
 
 .intro__card {
   width: 27%;
-  background: rgba(11, 18, 32, 0.6); /* transparent dark glass effect */
+  background: rgba(11, 18, 32, 0.6);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 16px;
   padding: 32px;

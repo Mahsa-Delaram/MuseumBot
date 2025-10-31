@@ -1,9 +1,8 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import Gallery from "./components/Gallery";
 import ChatPanel from "./components/ChatPanel";
 import "./app.css";
 
-/* ===== Utilities ===== */
 function buildHistory(list) {
   return list
     .slice(-12)
@@ -14,13 +13,15 @@ function buildHistory(list) {
     })
     .join("\n");
 }
+const isAffirmative = (t) =>
+  /^(y(es)?|yeah|yep|sure|ok(ay)?|please do|go ahead|let'?s go|do it|why not)\b/i.test(
+    t.trim()
+  );
 
-/* avatars */
 const AGENT_A = { role: "agentA", avatar: "/images/agentA.png" };
 const AGENT_B = { role: "agentB", avatar: "/images/agentB.png" };
 const USER = { role: "user", avatar: "/images/user.png" };
 
-/* rooms */
 const ROOM_MAP = {
   entrance: "/images/entrance.jpg",
   modern: "/images/modern.jpg",
@@ -29,7 +30,6 @@ const ROOM_MAP = {
   landscape: "/images/landscape.jpg",
 };
 
-/* ------- ONLY FOUR MASTERPIECES ------- */
 const ARTWORK_MAP = {
   "mona lisa": { image: "/images/mona_lisa.jpg", room: "classic" },
   "girl with a pearl earring": {
@@ -40,20 +40,40 @@ const ARTWORK_MAP = {
   "the scream": { image: "/images/the_scream.jpg", room: "modern" },
 };
 
-/* aliases */
-const ALIASES = {
-  monalisa: "mona lisa",
-  "mona-lisa": "mona lisa",
-  mona: "mona lisa",
-  girlwithapearlearring: "girl with a pearl earring",
-  "girl-with-a-pearl-earring": "girl with a pearl earring",
-  pearlearring: "girl with a pearl earring",
-  starrynight: "starry night",
-  "the-starry-night": "starry night",
-  scream: "the scream",
+const normalize = (s) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const ARTWORK_TOKENS = {
+  "mona lisa": [["mona", "lisa"], ["mona"], ["monalisa"]],
+  "girl with a pearl earring": [
+    ["girl", "pearl"],
+    ["pearl", "earring"],
+    ["girl", "earring"],
+    ["pearl"],
+  ],
+  "starry night": [["starry", "night"], ["starrynight"], ["night", "starry"]],
+  "the scream": [["scream"]],
 };
 
-/* helpers */
+function pickArtworkByText(t) {
+  const s = " " + normalize(t) + " ";
+
+  for (const key of Object.keys(ARTWORK_MAP)) {
+    if (s.includes(" " + key + " ")) return key;
+  }
+
+  for (const [key, tokenSets] of Object.entries(ARTWORK_TOKENS)) {
+    for (const tokens of tokenSets) {
+      const ok = tokens.every((tok) => s.includes(" " + tok + " "));
+      if (ok) return key;
+    }
+  }
+  return null;
+}
+
 function pickRoomByText(t) {
   const s = t.toLowerCase();
   if (/(modern|abstract|contemporary)/.test(s)) return "modern";
@@ -64,57 +84,6 @@ function pickRoomByText(t) {
   return null;
 }
 
-function normalize(s) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
-}
-
-function pickArtworkByText(t) {
-  const s = t.toLowerCase();
-  const direct = Object.keys(ARTWORK_MAP).find((k) => s.includes(k)) || null;
-  if (direct) return direct;
-  const sn = normalize(s);
-  for (const [alias, canonical] of Object.entries(ALIASES)) {
-    if (sn.includes(normalize(alias))) return canonical;
-  }
-  return null;
-}
-
-function isAffirmative(t) {
-  return /^(y(es)?|yeah|yup|ok(ay)?|sure|please do|go ahead|let's go)\b/i.test(
-    t.trim()
-  );
-}
-function isNegative(t) {
-  return /^(no|nope|not now|cancel|stop)\b/i.test(t.trim());
-}
-
-/* who should reply (when not in a pending permission step) */
-function decideResponder(text, lastResponder) {
-  const s = text.toLowerCase().trim();
-
-  if (/^(hi|hello|hey|salam|salaam)\b/.test(s)) return "A";
-  if (/\b(my name is|i['’]?\s*m|i am)\b/.test(s)) return "A";
-
-  if (
-    /\b(take me( there)?|go( there)?|navigate|where is|how do i get|back to)\b/.test(
-      s
-    )
-  )
-    return "A";
-  if (pickRoomByText(s)) return "A";
-
-  if (
-    /\b(tell me about|describe|who painted|when was|style|meaning|analysis|context|history|show me)\b/.test(
-      s
-    )
-  )
-    return "B";
-  if (pickArtworkByText(s)) return "B";
-
-  return lastResponder === "A" ? "B" : "A";
-}
-
-/* backend call */
 async function askAgent({ role, message, currentRoom, history, lastArtwork }) {
   const res = await fetch("http://localhost:3001/chat", {
     method: "POST",
@@ -123,22 +92,19 @@ async function askAgent({ role, message, currentRoom, history, lastArtwork }) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Request failed");
-  return data; // { reply, suggestedRoom, suggestedArtwork }
+  return data;
 }
 
-/* ===== Component ===== */
 export default function App({ initialName = "" }) {
   const [userName, setUserName] = useState(initialName);
   const [room, setRoom] = useState("entrance");
   const [imageSrc, setImageSrc] = useState(ROOM_MAP[room]);
 
-  // permission state machine
-  // idle → awaitingRoomConfirm → awaitingArtworkConfirm
-  const [pendingStep, setPendingStep] = useState("idle"); // 'idle' | 'awaitRoomConfirm' | 'awaitArtworkConfirm'
-  const [pendingArtworkKey, setPendingArtworkKey] = useState(null); // e.g., 'mona lisa'
-  const [pendingRoom, setPendingRoom] = useState(null); // e.g., 'classic'
+  const [pendingStep, setPendingStep] = useState("idle");
+  const [pendingRoom, setPendingRoom] = useState(null);
+  const [pendingArtworkKey, setPendingArtworkKey] = useState(null);
 
-  const initialMessages = useMemo(() => {
+  const [messages, setMessages] = useState(() => {
     if (initialName) {
       return [
         {
@@ -161,41 +127,25 @@ export default function App({ initialName = "" }) {
         text: "Hello! I’m Agent B (art guide). Ask me about any masterpiece.",
       },
     ];
-  }, [initialName]);
+  });
 
-  const [messages, setMessages] = useState(() => initialMessages);
   const [isTypingA, setTypingA] = useState(false);
   const [isTypingB, setTypingB] = useState(false);
   const [lastResponder, setLastResponder] = useState("B");
   const [lastArtworkKey, setLastArtworkKey] = useState(null);
-  const [lastSuggestedRoom, setLastSuggestedRoom] = useState(null);
 
   useEffect(() => {
     setImageSrc(ROOM_MAP[room] || ROOM_MAP.entrance);
   }, [room]);
 
-  const typeThenReply = async (agent, textPromise, delay = 550) => {
+  async function typeThenReply(agent, textPromise, delay = 600) {
     const setTyping = agent === "A" ? setTypingA : setTypingB;
     const who = agent === "A" ? AGENT_A : AGENT_B;
 
     setTyping(true);
     try {
       await new Promise((r) => setTimeout(r, delay));
-      const { reply, suggestedRoom, suggestedArtwork } = await textPromise;
-
-      // we do NOT auto-navigate or auto-show during permission steps
-      if (pendingStep === "idle") {
-        if (suggestedRoom) {
-          setRoom(suggestedRoom);
-          setLastSuggestedRoom(suggestedRoom);
-        }
-        if (suggestedArtwork?.image) {
-          setImageSrc(suggestedArtwork.image);
-          if (suggestedArtwork.key)
-            setLastArtworkKey(suggestedArtwork.key.toLowerCase());
-        }
-      }
-
+      const { reply } = await textPromise;
       setMessages((prev) => [...prev, { ...who, text: reply }]);
       setLastResponder(agent);
     } catch {
@@ -209,10 +159,9 @@ export default function App({ initialName = "" }) {
     } finally {
       setTyping(false);
     }
-  };
+  }
 
-  // helper wrappers for agent A/B
-  const sayA = (message, delay = 420) =>
+  const sayA = (message, delay = 480) =>
     typeThenReply(
       "A",
       askAgent({
@@ -225,7 +174,7 @@ export default function App({ initialName = "" }) {
       delay
     );
 
-  const sayB = (message, delay = 520) =>
+  const sayB = (message, delay = 620) =>
     typeThenReply(
       "B",
       askAgent({
@@ -239,141 +188,120 @@ export default function App({ initialName = "" }) {
     );
 
   const onSend = async (text) => {
-    // user bubble
     setMessages((prev) => [...prev, { ...USER, text }]);
 
-    /* ===== permission steps take precedence ===== */
-    if (pendingStep === "awaitRoomConfirm") {
+    if (pendingStep === "awaitNavigate") {
       if (isAffirmative(text)) {
-        // move to the room
         if (pendingRoom) setRoom(pendingRoom);
-        setPendingStep("awaitArtworkConfirm");
-
-        // Ask permission to show the specific artwork
         await sayA(
-          `We are in the ${pendingRoom} room now. Ask (one short question) if the visitor wants to see "${pendingArtworkKey}".`
+          `We are in the ${pendingRoom} room now. Would you like to see "${pendingArtworkKey}"?`
         );
-        return;
-      }
-      if (isNegative(text)) {
-        // cancel
+        setPendingStep("awaitArtworkConfirm");
+      } else {
         setPendingStep("idle");
-        setPendingArtworkKey(null);
         setPendingRoom(null);
-        await sayA("No problem. What would you like to explore instead?");
-        return;
+        setPendingArtworkKey(null);
+        await sayA("No problem. Where would you like to go next?");
       }
-      // if user typed something else while we wait, gently re-ask
-      await sayA(
-        `Would you like me to take you to the ${pendingRoom} room to see "${pendingArtworkKey}"?`
-      );
       return;
     }
 
     if (pendingStep === "awaitArtworkConfirm") {
       if (isAffirmative(text)) {
-        // show the artwork image
         const art = ARTWORK_MAP[pendingArtworkKey];
         if (art?.image) setImageSrc(art.image);
         setLastArtworkKey(pendingArtworkKey);
 
-        // done with the flow
         setPendingStep("idle");
         const shownKey = pendingArtworkKey;
         setPendingArtworkKey(null);
         setPendingRoom(null);
 
-        // Now Agent B gives the info (only AFTER showing)
+        await new Promise((r) => setTimeout(r, 180));
         await sayB(
-          `Give a concise (1–2 sentence) description of "${shownKey}". Do not include navigation details.`
+          `Give a concise (1–2 sentence) description of "${shownKey}". Do NOT mention rooms, moving, directions, or navigation.`
         );
-        return;
-      }
-      if (isNegative(text)) {
+      } else {
+        const stayRoom = pendingRoom || room;
         setPendingStep("idle");
-        const cancelledRoom = pendingRoom;
         setPendingArtworkKey(null);
         setPendingRoom(null);
         await sayA(
-          `Okay. We're in the ${cancelledRoom} room. What would you like to see next?`
+          `Okay. We're in the ${stayRoom} room. What would you like to see next?`
         );
-        return;
       }
-      await sayA(`Would you like me to show you "${pendingArtworkKey}" now?`);
       return;
     }
 
-    /* ===== name capture (only when not in permission steps) ===== */
     if (!userName) {
       const m =
         text.match(
           /\b(i\s*am|i['’]?\s*m|my\s+name\s+is)\s+([A-Za-z][\w-]*)\b/i
         ) || (/^[A-Za-z][\w-]*$/.test(text.trim()) ? [, , text.trim()] : null);
-
       if (m) {
         const name = m[2];
         setUserName(name);
-        const hist0 = buildHistory([...messages, { ...USER, text }]);
-
-        typeThenReply(
-          "A",
-          askAgent({
-            role: "agentA",
-            message: `The visitor's name is ${name}. Greet them briefly.`,
-            currentRoom: room,
-            history: hist0,
-            lastArtwork: lastArtworkKey,
-          }),
-          350
-        );
-
-        typeThenReply(
-          "B",
-          askAgent({
-            role: "agentB",
-            message:
-              "Ask what they want to explore next (one short question). Do not greet; do not mention not greeting.",
-            currentRoom: room,
-            history: hist0,
-            lastArtwork: lastArtworkKey,
-          }),
+        await sayA(`The visitor's name is ${name}. Greet them briefly.`, 350);
+        await sayB(
+          "Ask what they want to explore next (one short question). Do not greet; do not mention not greeting.",
           600
         );
         return;
       }
     }
 
-    /* ===== detect direct artwork request → start permission flow ===== */
-    const artKey = pickArtworkByText(text);
-    if (artKey && ARTWORK_MAP[artKey]) {
-      const { room: artRoom } = ARTWORK_MAP[artKey];
-      setPendingArtworkKey(artKey);
-      setPendingRoom(artRoom);
-      setPendingStep("awaitRoomConfirm");
-
-      // Ask permission to navigate first (no info yet, no image yet)
+    if (/^(hi|hello|hey|salam|salaam)\b/i.test(text.trim())) {
       await sayA(
-        `The visitor asked for "${artKey}". Ask (one short question) for permission to go to the ${artRoom} room.`
+        userName
+          ? `The visitor greeted. Reply as Agent A with one friendly line and ask what they'd like to see. Use their name "${userName}" if available.`
+          : `The visitor greeted. Reply as Agent A with one friendly line and ask what they'd like to see.`
       );
       return;
     }
 
-    /* ===== plain room routing (no pending flow) ===== */
+    if (/\b(thanks|thank you|tnx|thx)\b/i.test(text)) {
+      await sayA(
+        "Respond politely (e.g., 'You're welcome. I'm glad to help.'). Then ask if they'd like to see another masterpiece."
+      );
+      return;
+    }
+
+    const artKey = pickArtworkByText(text);
+    if (artKey && ARTWORK_MAP[artKey]) {
+      const artRoom = ARTWORK_MAP[artKey].room;
+      setPendingRoom(artRoom);
+      setPendingArtworkKey(artKey);
+      setPendingStep("awaitNavigate");
+      await sayA(
+        `The visitor asked for "${artKey}". Ask in one short sentence for permission to go to the ${artRoom} room. Do not move yet.`
+      );
+      return;
+    }
+
     const target = pickRoomByText(text);
-    if (target) setRoom(target);
+    if (target) {
+      setRoom(target);
+      await sayA(`We're heading to the ${target} room.`);
+      return;
+    }
 
-    /* ===== default responder ===== */
-    const responder = decideResponder(text, lastResponder);
+    const s = text.toLowerCase().trim();
+    const wantDirection =
+      /\b(show|take|go|navigate|where|how do i get|back to|lead|guide)\b/.test(
+        s
+      );
+    const responder = wantDirection ? "A" : "A";
     const role = responder === "A" ? "agentA" : "agentB";
-    const hist = buildHistory([...messages, { ...USER, text }]);
-
-    typeThenReply(
+    await typeThenReply(
       responder,
       askAgent({
         role,
-        message: text,
+        message:
+          role === "agentA"
+            ? "Give a short, helpful navigation-style answer without art analysis. If it's a broad question like 'what do you have', summarize available rooms and the four masterpieces, then ask what they'd like to see."
+            : "Give a short art answer (1–2 sentences). Do not mention rooms or directions.",
         currentRoom: room,
-        history: hist,
+        history: buildHistory([...messages, { ...USER, text }]),
         lastArtwork: lastArtworkKey,
       }),
       responder === "A" ? 480 : 620

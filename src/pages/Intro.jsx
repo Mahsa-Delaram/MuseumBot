@@ -7,7 +7,6 @@ export default function Intro({ onStart }) {
   const [name, setName] = useState("");
   const canEnter = name.trim().length > 0;
 
-  // preload a few key images
   useEffect(() => {
     [
       "/images/entrance.jpg",
@@ -20,13 +19,13 @@ export default function Intro({ onStart }) {
   }, []);
 
   const startWithName = () => {
-    if (!canEnter) return; // safety
+    if (!canEnter) return;
     onStart?.(name.trim());
     nav("/museum");
   };
 
   const startAsGuest = () => {
-    onStart?.(""); // no name
+    onStart?.("");
     nav("/museum");
   };
 
