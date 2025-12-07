@@ -268,7 +268,7 @@ padding: 24px;
 }
 
 .intro__card {
-  width: 27%;
+  width: 25%;
   background: rgba(11, 18, 32, 0.6);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 16px;
@@ -329,7 +329,12 @@ width: 100%;
 }
 .intro__ghost:hover { filter: brightness(1.05); }
 
-.intro__actions { display:flex; gap:10px; margin-top:12px; }
+.intro__actions { 
+  display:grid;
+  gap:10px;
+  margin-top:12px;
+  }
+
 .intro__cta:disabled {
   opacity: .5;
   cursor: not-allowed;

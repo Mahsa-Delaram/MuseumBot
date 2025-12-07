@@ -18,6 +18,7 @@ const museum = JSON.parse(
 );
 
 
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -60,7 +61,7 @@ function findArtworkByQuery(q) {
 
 
 async function callModel({ client, systemPrompt, userTurn, fileId }) {
-  
+
   try {
     if (fileId) {
       const resp = await client.responses.create({
@@ -105,6 +106,8 @@ async function callModel({ client, systemPrompt, userTurn, fileId }) {
   });
   return cc.choices?.[0]?.message?.content || "";
 }
+
+
 
 app.post("/chat", async (req, res) => {
   try {
@@ -238,6 +241,8 @@ Only discuss these four artworks if asked: ${allowedArtworks.join(", ")}."`;
     }
 
     res.json({ reply, suggestedRoom, suggestedArtwork });
+
+    
   } catch (err) {
     console.error(
       "❌ OpenAI call failed:",

@@ -10,7 +10,7 @@
     "mona lisa": {
       "title": "Mona Lisa",
       "artist": "Leonardo da Vinci",
-      "year": "1503–1506",
+      "year": "1503",
       "room": "classic",
       "desc": "The most famous portrait in the world, celebrated for its enigmatic smile."
     },
@@ -37,3 +37,4 @@
     }
   }
 }
+

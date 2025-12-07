@@ -13,6 +13,7 @@ function buildHistory(list) {
     })
     .join("\n");
 }
+
 const isAffirmative = (t) =>
   /^(y(es)?|yeah|yep|sure|ok(ay)?|please do|go ahead|let'?s go|do it|why not)\b/i.test(
     t.trim()
@@ -47,15 +48,27 @@ const normalize = (s) =>
     .trim();
 
 const ARTWORK_TOKENS = {
-  "mona lisa": [["mona", "lisa"], ["mona"], ["monalisa"]],
+  "mona lisa": [
+    ["mona", "lisa"],
+    ["mona"],
+    ["monalisa"],
+    ["monaliza"],
+    ["mona liza"],
+  ],
   "girl with a pearl earring": [
     ["girl", "pearl"],
     ["pearl", "earring"],
     ["girl", "earring"],
     ["pearl"],
   ],
-  "starry night": [["starry", "night"], ["starrynight"], ["night", "starry"]],
-  "the scream": [["scream"]],
+  "starry night": [
+    ["starry", "night"],
+    ["starrynight"],
+    ["night", "starry"],
+    ["starynight"],
+    ["stary", "night"],
+  ],
+  "the scream": [["scream"], ["screem"], ["skreem"], ["skream"], ["sream"]],
 };
 
 function pickArtworkByText(t) {
@@ -82,6 +95,19 @@ function pickRoomByText(t) {
   if (/(landscape|nature)/.test(s)) return "landscape";
   if (/(entrance|lobby|main hall|home)/.test(s)) return "entrance";
   return null;
+}
+
+// Detect only "pure" greetings like "hello", "hello!", "hi :)"
+function isPureGreeting(text) {
+  const t = text.trim().toLowerCase();
+  const m = /^(hi|hello|hey|salam|salaam)\b/.exec(t);
+  if (!m) return false;
+
+  const rest = t.slice(m[0].length).trim();
+  if (!rest) return true;
+  if (/^[\s.!?…,:;()-]+$/.test(rest)) return true;
+
+  return false;
 }
 
 async function askAgent({ role, message, currentRoom, history, lastArtwork }) {
@@ -161,26 +187,27 @@ export default function App({ initialName = "" }) {
     }
   }
 
-  const sayA = (message, delay = 480) =>
+  // allow optional overrideRoom so we don't rely on async state for the backend
+  const sayA = (message, delay = 480, overrideRoom = null) =>
     typeThenReply(
       "A",
       askAgent({
         role: "agentA",
         message,
-        currentRoom: room,
+        currentRoom: overrideRoom ?? room,
         history: buildHistory(messages),
         lastArtwork: lastArtworkKey,
       }),
       delay
     );
 
-  const sayB = (message, delay = 620) =>
+  const sayB = (message, delay = 620, overrideRoom = null) =>
     typeThenReply(
       "B",
       askAgent({
         role: "agentB",
         message,
-        currentRoom: room,
+        currentRoom: overrideRoom ?? room,
         history: buildHistory(messages),
         lastArtwork: lastArtworkKey,
       }),
@@ -190,12 +217,28 @@ export default function App({ initialName = "" }) {
   const onSend = async (text) => {
     setMessages((prev) => [...prev, { ...USER, text }]);
 
+    // 1) user just answered our navigation question
     if (pendingStep === "awaitNavigate") {
       if (isAffirmative(text)) {
-        if (pendingRoom) setRoom(pendingRoom);
+        const newRoom = pendingRoom || room;
+
+        // update React state
+        setRoom(newRoom);
+
+        // tell backend explicitly that we're now in newRoom
+        // IMPORTANT: only say we're in the room and ASK if they want to see the artwork.
+        // Do NOT describe or show the artwork yet.
         await sayA(
-          `We are in the ${pendingRoom} room now. Would you like to see "${pendingArtworkKey}"?`
+          `
+We have now moved to the ${newRoom} room.
+In one short sentence, tell the visitor that they are in the ${newRoom} room
+and ask if they would like to see "${pendingArtworkKey}".
+Do NOT describe the artwork and do NOT say that it is already in front of them.
+`.trim(),
+          480,
+          newRoom
         );
+
         setPendingStep("awaitArtworkConfirm");
       } else {
         setPendingStep("idle");
@@ -206,6 +249,7 @@ export default function App({ initialName = "" }) {
       return;
     }
 
+    // 2) user answered whether to actually show the artwork
     if (pendingStep === "awaitArtworkConfirm") {
       if (isAffirmative(text)) {
         const art = ARTWORK_MAP[pendingArtworkKey];
@@ -227,12 +271,15 @@ export default function App({ initialName = "" }) {
         setPendingArtworkKey(null);
         setPendingRoom(null);
         await sayA(
-          `Okay. We're in the ${stayRoom} room. What would you like to see next?`
+          `Okay. We're in the ${stayRoom} room. What would you like to see next?`,
+          480,
+          stayRoom
         );
       }
       return;
     }
 
+    // 3) name capture
     if (!userName) {
       const m =
         text.match(
@@ -250,7 +297,8 @@ export default function App({ initialName = "" }) {
       }
     }
 
-    if (/^(hi|hello|hey|salam|salaam)\b/i.test(text.trim())) {
+    // 4) greetings
+    if (isPureGreeting(text)) {
       await sayA(
         userName
           ? `The visitor greeted. Reply as Agent A with one friendly line and ask what they'd like to see. Use their name "${userName}" if available.`
@@ -259,13 +307,20 @@ export default function App({ initialName = "" }) {
       return;
     }
 
-    if (/\b(thanks|thank you|tnx|thx)\b/i.test(text)) {
-      await sayA(
-        "Respond politely (e.g., 'You're welcome. I'm glad to help.'). Then ask if they'd like to see another masterpiece."
-      );
+    // 5) thanks
+    if (/\b(thanks|thank\s*you|thanku|thanx|tnx|thx)\b/i.test(text)) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          ...AGENT_A,
+          text: "You're welcome! Would you like to see another masterpiece?",
+        },
+      ]);
+      setLastResponder("A");
       return;
     }
 
+    // 6) user mentioned a specific artwork
     const artKey = pickArtworkByText(text);
     if (artKey && ARTWORK_MAP[artKey]) {
       const artRoom = ARTWORK_MAP[artKey].room;
@@ -278,13 +333,15 @@ export default function App({ initialName = "" }) {
       return;
     }
 
+    // 7) user mentioned a room explicitly
     const target = pickRoomByText(text);
     if (target) {
       setRoom(target);
-      await sayA(`We're heading to the ${target} room.`);
+      await sayA(`We're heading to the ${target} room.`, 480, target);
       return;
     }
 
+    // 8) fallback: generic navigation / art answer
     const s = text.toLowerCase().trim();
     const wantDirection =
       /\b(show|take|go|navigate|where|how do i get|back to|lead|guide)\b/.test(
@@ -298,7 +355,18 @@ export default function App({ initialName = "" }) {
         role,
         message:
           role === "agentA"
-            ? "Give a short, helpful navigation-style answer without art analysis. If it's a broad question like 'what do you have', summarize available rooms and the four masterpieces, then ask what they'd like to see."
+            ? `
+You are Agent A, the tourist-guide assistant in a small virtual art museum.
+Give a short, helpful navigation-style answer without any art analysis.
+
+- If it is a broad question like "what do you have", summarize the available rooms
+  and the four masterpieces, then ask what the visitor would like to see.
+- If the user asks for something that is NOT one of the museum rooms or one of the
+  four artworks (for example: pizza, coffee, shop, tickets, food, or anything unrelated
+  to the collection), politely say that the museum does not have that.
+  Then explicitly list the available rooms and the four artworks again and ask the visitor
+  which of those they would like to see next.
+`.trim()
             : "Give a short art answer (1–2 sentences). Do not mention rooms or directions.",
         currentRoom: room,
         history: buildHistory([...messages, { ...USER, text }]),
