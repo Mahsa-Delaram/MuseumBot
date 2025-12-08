@@ -222,12 +222,8 @@ export default function App({ initialName = "" }) {
       if (isAffirmative(text)) {
         const newRoom = pendingRoom || room;
 
-        // update React state
         setRoom(newRoom);
 
-        // tell backend explicitly that we're now in newRoom
-        // IMPORTANT: only say we're in the room and ASK if they want to see the artwork.
-        // Do NOT describe or show the artwork yet.
         await sayA(
           `
 We have now moved to the ${newRoom} room.
@@ -297,13 +293,28 @@ Do NOT describe the artwork and do NOT say that it is already in front of them.
       }
     }
 
-    // 4) greetings
+    // 4) greetings  (LOCAL, no backend)
     if (isPureGreeting(text)) {
-      await sayA(
-        userName
-          ? `The visitor greeted. Reply as Agent A with one friendly line and ask what they'd like to see. Use their name "${userName}" if available.`
-          : `The visitor greeted. Reply as Agent A with one friendly line and ask what they'd like to see.`
+      const name = userName || "there";
+
+      // Agent B types first, no LLM
+      await typeThenReply(
+        "B",
+        Promise.resolve({
+          reply: `Hello ${name}! I'm Agent B (art guide). Agent A is here to navigate you through the rooms.`,
+        }),
+        400
       );
+
+      // Then Agent A types, no LLM
+      await typeThenReply(
+        "A",
+        Promise.resolve({
+          reply: `Hello ${name}! Which masterpiece or room would you like to see first?`,
+        }),
+        450
+      );
+
       return;
     }
 
@@ -313,7 +324,9 @@ Do NOT describe the artwork and do NOT say that it is already in front of them.
         ...prev,
         {
           ...AGENT_A,
-          text: "You're welcome! Would you like to see another masterpiece?",
+          text: userName
+            ? `You're welcome, ${userName}! Would you like to see another masterpiece?`
+            : "You're welcome! Would you like to see another masterpiece?",
         },
       ]);
       setLastResponder("A");
